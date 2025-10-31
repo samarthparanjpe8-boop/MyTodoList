@@ -1,83 +1,122 @@
-const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
-const API_KEY = '';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+// Replace this with your own Google OAuth Client ID
+const CLIENT_ID = "287636693225-10lsudaso0edl1uj5t82uctmnk1jkpl7.apps.googleusercontent.com";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
 let tokenClient;
+let accessToken = null;
 let gapiInited = false;
-let gisInited = false;
 
-document.getElementById('authorize_button').onclick = handleAuthClick;
-document.getElementById('signout_button').onclick = handleSignoutClick;
-
-// Load GAPI
-gapi.load('client', initializeGapiClient);
-
-async function initializeGapiClient() {
+// Load Google API client
+gapi.load("client", async () => {
   await gapi.client.init({
-    apiKey: API_KEY,
-    discoveryDocs: [DISCOVERY_DOC],
+    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
   });
   gapiInited = true;
-}
+});
 
-// Google OAuth
-function handleAuthClick() {
+window.onload = () => {
+  // Initialize OAuth client
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
-    callback: async (tokenResponse) => {
-      document.getElementById('authorize_button').style.display = 'none';
-      document.getElementById('signout_button').style.display = 'inline-block';
-    },
+    callback: handleAuthResponse,
   });
-  tokenClient.requestAccessToken();
+
+  document.getElementById("signin-btn").onclick = () => tokenClient.requestAccessToken();
+  document.getElementById("signout-btn").onclick = handleSignOut;
+  document.getElementById("add-btn").onclick = addTask;
+};
+
+// Handle login success
+async function handleAuthResponse(tokenResponse) {
+  if (tokenResponse.access_token) {
+    accessToken = tokenResponse.access_token;
+    document.getElementById("signin-btn").style.display = "none";
+    document.getElementById("signout-btn").style.display = "inline-block";
+
+    // Fetch user info
+    const userInfo = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const profile = await userInfo.json();
+    document.getElementById("user-info").textContent = `Signed in as ${profile.name} (${profile.email}) ✅`;
+  }
 }
 
-function handleSignoutClick() {
-  google.accounts.oauth2.revoke(tokenClient.credentials.access_token);
-  document.getElementById('authorize_button').style.display = 'inline-block';
-  document.getElementById('signout_button').style.display = 'none';
+// Handle logout
+function handleSignOut() {
+  google.accounts.oauth2.revoke(accessToken);
+  accessToken = null;
+  document.getElementById("signin-btn").style.display = "inline-block";
+  document.getElementById("signout-btn").style.display = "none";
+  document.getElementById("user-info").textContent = "";
+  document.getElementById("todo-list").innerHTML = "";
 }
 
-// To-Do functionality
-document.getElementById("addTask").addEventListener("click", addTask);
+// Add a new task
+async function addTask() {
+  const task = document.getElementById("task").value.trim();
+  const datetime = document.getElementById("datetime").value;
 
-function addTask() {
-  const taskInput = document.getElementById("taskInput");
-  const taskText = taskInput.value.trim();
-  if (!taskText) return;
+  if (!task || !datetime) {
+    alert("Please enter both task and date/time!");
+    return;
+  }
 
-  const li = document.createElement("li");
-  li.textContent = taskText;
-  document.getElementById("taskList").appendChild(li);
-
-  // Add to Google Calendar
-  addToGoogleCalendar(taskText);
-  taskInput.value = "";
-}
-
-// Add event to Google Calendar
-async function addToGoogleCalendar(task) {
   const event = {
     summary: task,
-    start: {
-      dateTime: new Date().toISOString(),
-      timeZone: 'Asia/Kolkata',
-    },
+    start: { dateTime: new Date(datetime).toISOString(), timeZone: "Asia/Kolkata" },
     end: {
-      dateTime: new Date(Date.now() + 3600000).toISOString(), // 1 hr later
-      timeZone: 'Asia/Kolkata',
+      dateTime: new Date(new Date(datetime).getTime() + 60 * 60 * 1000).toISOString(),
+      timeZone: "Asia/Kolkata",
     },
   };
 
   try {
-    await gapi.client.calendar.events.insert({
-      calendarId: 'primary',
+    const response = await gapi.client.calendar.events.insert({
+      calendarId: "primary",
       resource: event,
     });
-    alert("Task added to Google Calendar!");
+
+    const eventId = response.result.id;
+    addTaskToUI(task, datetime, eventId);
+
+    document.getElementById("task").value = "";
+    document.getElementById("datetime").value = "";
   } catch (error) {
-    console.error(error);
+    console.error("Error adding to calendar:", error);
+    alert("Please sign in before syncing to Google Calendar.");
+  }
+}
+
+// Add task in UI
+function addTaskToUI(task, datetime, eventId) {
+  const li = document.createElement("li");
+
+  const infoDiv = document.createElement("div");
+  infoDiv.classList.add("task-info");
+  infoDiv.innerHTML = `<span>${task}</span><span class="task-time">${new Date(datetime).toLocaleString()}</span>`;
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "Delete";
+  delBtn.classList.add("delete-btn");
+  delBtn.onclick = () => deleteTask(li, eventId);
+
+  li.appendChild(infoDiv);
+  li.appendChild(delBtn);
+  document.getElementById("todo-list").appendChild(li);
+}
+
+// Delete task (from list + Google Calendar)
+async function deleteTask(li, eventId) {
+  try {
+    await gapi.client.calendar.events.delete({
+      calendarId: "primary",
+      eventId: eventId,
+    });
+    li.remove();
+  } catch (error) {
+    console.error("Failed to delete from calendar:", error);
+    li.remove(); // Remove locally anyway
   }
 }

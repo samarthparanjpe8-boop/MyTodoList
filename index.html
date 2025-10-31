@@ -1,24 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List with Google Calendar Sync</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Todo List with Google Calendar</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>📝 To-Do List (Google Calendar Sync)</h1>
+  <div class="container">
+    <h1>🗓️ Todo List (Google Calendar Sync)</h1>
 
-  <button id="authorize_button">Sign In with Google</button>
-  <button id="signout_button" style="display:none;">Sign Out</button>
+    <div class="auth-section">
+      <button id="signin-btn">Sign in with Google</button>
+      <button id="signout-btn" style="display:none;">Sign out</button>
+      <p id="user-info" class="user-info"></p>
+    </div>
 
-  <div id="todo-container">
-    <input type="text" id="taskInput" placeholder="Add a new task...">
-    <button id="addTask">Add Task</button>
-    <ul id="taskList"></ul>
+    <div class="todo-input">
+      <input type="text" id="task" placeholder="Task name..." />
+      <input type="datetime-local" id="datetime" />
+      <button id="add-btn">Add Task</button>
+    </div>
+
+    <ul id="todo-list"></ul>
   </div>
 
+  <!-- Google API scripts -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
-  <script src="scripts.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
