@@ -120,3 +120,11 @@ async function deleteTask(li, eventId) {
     li.remove(); // Remove locally anyway
   }
 }
+function ensureAuthorized() {
+  const token = gapi.client.getToken();
+  if (!token) {
+    // User not signed in or token expired
+    gapi.auth2.getAuthInstance().signIn();
+  }
+}
+
